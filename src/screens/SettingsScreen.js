@@ -164,29 +164,51 @@ export default function SettingsScreen() {
       <Text style={styles.screenTitle}>Settings</Text>
 
       {/* Section 1: Account Details */}
-      <SectionCard title="Your Account Details">
-        <Label text="Bank Name" required />
-        <TextInput style={styles.input} placeholder="e.g. First Bank" placeholderTextColor="#555" value={bankName} onChangeText={setBankName} />
-        <Label text="Account Name" required />
-        <TextInput style={styles.input} placeholder="e.g. Oluwaseun Adeyemi" placeholderTextColor="#555" value={accountName} onChangeText={setAccountName} />
-        <Label text="Account Number" required />
-        <TextInput
-          style={[styles.input, styles.acctNumberInput]}
-          placeholder="0123456789"
-          placeholderTextColor="#555"
-          value={accountNumber}
-          onChangeText={setAccountNumber}
-          keyboardType="number-pad"
-          maxLength={10}
-        />
-        <TouchableOpacity
-          style={[styles.saveBtn, savingAccount && styles.btnDisabled]}
-          onPress={handleSaveAccount}
-          disabled={savingAccount}
-        >
-          {savingAccount ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Account Details</Text>}
-        </TouchableOpacity>
-      </SectionCard>
+      <View style={styles.card}>
+        <View style={styles.rulesHeader}>
+          <Text style={styles.cardTitle}>Account Details</Text>
+          {!isAdmin && (
+            <View style={styles.lockBadge}>
+              <Text style={styles.lockBadgeText}>🔒 Read-only</Text>
+            </View>
+          )}
+        </View>
+
+        {isAdmin ? (
+          <>
+            <Label text="Bank Name" required />
+            <TextInput style={styles.input} placeholder="e.g. First Bank" placeholderTextColor="#555" value={bankName} onChangeText={setBankName} />
+            <Label text="Account Name" required />
+            <TextInput style={styles.input} placeholder="e.g. Oluwaseun Adeyemi" placeholderTextColor="#555" value={accountName} onChangeText={setAccountName} />
+            <Label text="Account Number" required />
+            <TextInput
+              style={[styles.input, styles.acctNumberInput]}
+              placeholder="0123456789"
+              placeholderTextColor="#555"
+              value={accountNumber}
+              onChangeText={setAccountNumber}
+              keyboardType="number-pad"
+              maxLength={10}
+            />
+            <TouchableOpacity
+              style={[styles.saveBtn, savingAccount && styles.btnDisabled]}
+              onPress={handleSaveAccount}
+              disabled={savingAccount}
+            >
+              {savingAccount ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Account Details</Text>}
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={styles.roLabel}>Bank</Text>
+            <Text style={styles.roValue}>{bankName || '—'}</Text>
+            <Text style={styles.roLabel}>Account Name</Text>
+            <Text style={styles.roValue}>{accountName || '—'}</Text>
+            <Text style={styles.roLabel}>Account Number</Text>
+            <Text style={[styles.roValue, styles.acctNumberInput]}>{accountNumber || '—'}</Text>
+          </>
+        )}
+      </View>
 
       {/* Section 2: Change PIN */}
       <SectionCard title="Change Report PIN">
@@ -361,4 +383,6 @@ const styles = StyleSheet.create({
   pctLabel: { color: '#aaa', fontSize: 11, fontWeight: '600', marginBottom: 4 },
   pctInput: { backgroundColor: '#0f0f0f', borderWidth: 1, borderRadius: 8, padding: 10, color: '#fff', fontSize: 14, textAlign: 'center' },
   pctHint: { color: '#888', fontSize: 11, marginTop: 8, textAlign: 'right' },
+  roLabel: { color: '#888', fontSize: 12, marginTop: 12, marginBottom: 2 },
+  roValue: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
