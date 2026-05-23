@@ -4,12 +4,14 @@ import {
   StyleSheet, Alert, ActivityIndicator, TextInput, Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { getSalesByWeek, deleteAllSales, getSetting } from '../db/salesService';
+import { getSalesByWeek, deleteAllSales, getSetting, getMyPin } from '../db/salesService';
+import { useAuth } from '../context/AuthContext';
 import { buildSummary, buildCategorySummary, formatNaira } from '../utils/calculations';
 import { getWeekNumber, getCurrentYear, formatDate } from '../utils/dateHelpers';
 import Share from 'react-native-share';
 
 export default function WeeklyReportScreen() {
+  const { session } = useAuth();
   const week = getWeekNumber();
   const year = getCurrentYear();
 
@@ -48,7 +50,7 @@ export default function WeeklyReportScreen() {
     setCheckingPin(true);
     setPinError('');
     try {
-      const storedPin = await getSetting('report_pin');
+      const storedPin = await getMyPin(session.user.id);
       if (pinInput === storedPin) {
         setLocked(false);
         setPinInput('');

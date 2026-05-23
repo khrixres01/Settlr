@@ -58,10 +58,11 @@ INSERT INTO settings (key, value) VALUES
   ('account_number',   '')
 ON CONFLICT (key) DO NOTHING;
 
--- 4. PROFILES TABLE (roles)
+-- 4. PROFILES TABLE (roles + personal PIN)
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL DEFAULT 'user'  -- 'admin' | 'user'
+  role TEXT NOT NULL DEFAULT 'user',  -- 'admin' | 'user'
+  report_pin TEXT NOT NULL DEFAULT '0000'
 );
 
 -- ============================================================

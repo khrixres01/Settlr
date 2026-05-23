@@ -67,18 +67,35 @@ export async function upsertSetting(key, value) {
   if (error) throw error;
 }
 
-export async function getMyRole(userId) {
+export async function getMyProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, report_pin')
     .eq('id', userId)
     .single();
-  if (error) return 'user'; // default to non-admin if no profile yet
-  return data?.role ?? 'user';
+  if (error) return { role: 'user', report_pin: '0000' };
+  return data;
+}
+
+export async function getMyRole(userId) {
+  const profile = await getMyProfile(userId);
+  return profile.role ?? 'user';
+}
+
+export async function getMyPin(userId) {
+  const profile = await getMyProfile(userId);
+  return profile.report_pin ?? '0000';
+}
+
+export async function updateMyPin(userId, newPin) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ report_pin: newPin })
+    .eq('id', userId);
+  if (error) throw error;
 }
 
 export async function ensureProfile(userId) {
-  // Creates profile row if it doesn't exist yet (role defaults to 'user')
   await supabase
     .from('profiles')
     .upsert({ id: userId }, { onConflict: 'id', ignoreDuplicates: true });

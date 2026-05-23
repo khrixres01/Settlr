@@ -3,11 +3,11 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
-import { getAllSettings, upsertSetting, getSetting, getCategories, updateCategory } from '../db/salesService';
+import { getAllSettings, upsertSetting, getCategories, updateCategory, getMyPin, updateMyPin } from '../db/salesService';
 import { useAuth } from '../context/AuthContext';
 
 export default function SettingsScreen() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, session } = useAuth();
 
   // Account details
   const [bankName, setBankName] = useState('');
@@ -89,12 +89,12 @@ export default function SettingsScreen() {
     }
     setSavingPin(true);
     try {
-      const stored = await getSetting('report_pin');
+      const stored = await getMyPin(session.user.id);
       if (currentPin !== stored) {
         Alert.alert('Incorrect PIN', 'Current PIN is incorrect.');
         return;
       }
-      await upsertSetting('report_pin', newPin);
+      await updateMyPin(session.user.id, newPin);
       setCurrentPin(''); setNewPin(''); setConfirmPin('');
       Alert.alert('Success', 'PIN changed successfully.');
     } catch (e) {
@@ -210,8 +210,8 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {/* Section 2: Change PIN */}
-      <SectionCard title="Change Report PIN">
+      {/* Section 2: Change PIN — personal per user */}
+      <SectionCard title="Change My Report PIN">
         <Label text="Current PIN" required />
         <TextInput style={styles.input} placeholder="Enter current PIN" placeholderTextColor="#555" value={currentPin} onChangeText={setCurrentPin} secureTextEntry keyboardType="number-pad" />
         <Label text="New PIN" required />
