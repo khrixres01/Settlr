@@ -1,0 +1,104 @@
+name: Keepalive
+
+# Two separate clocks are being kept alive here:
+#   1. Supabase pauses a free project after 7 days with no database activity.
+#      -> the ping step runs every 3 days.
+#   2. GitHub disables a scheduled workflow after 60 days of repo inactivity.
+#      -> the heartbeat step commits a file every 14 days, which counts as
+#         repo activity and resets that 60-day timer.
+
+on:
+  schedule:
+    # Every 3 days at 06:17 UTC. The odd minute avoids the top-of-hour rush,
+    # when GitHub's scheduler is most likely to delay or drop a run.
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+
+          # Check the secrets first, so a missing secret reports itself as a
+          # missing secret instead of as a malformed request to a null host.
+          missing=0
+          if [ -z "${SUPABASE_URL:-}" ]; then
+            echo "::error::Repository secret SUPABASE_URL is not set (Settings > Secrets and variables > Actions > Secrets)."
+            missing=1
+          fi
+          if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::Repository secret SUPABASE_ANON_KEY is not set (Settings > Secrets and variables > Actions > Secrets)."
+            missing=1
+          fi
+          [ "$missing" -eq 0 ] || exit 1
+
+          # A single-row read. The anon key is deliberate: a plain read needs no
+          # elevated rights, so the service role key never has to live here.
+          code=$(curl -sS -o response.txt -w '%{http_code}' \
+            --max-time 30 --retry 2 --retry-delay 5 \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/categories?select=id&limit=1")
+
+          echo "HTTP ${code}"
+
+          case "$code" in
+            2*)
+              echo "Supabase responded ${code} — project is awake."
+              ;;
+            *)
+              echo "::error::Supabase ping failed with HTTP ${code}. The project may be paused."
+              # Safe to print: this is Supabase's error body, not the key.
+              cat response.txt || true
+              exit 1
+              ;;
+          esac
+
+          rm -f response.txt
+
+      - name: Heartbeat commit
+        run: |
+          set -euo pipefail
+
+          file=.github/keepalive-heartbeat.txt
+          now=$(date -u +%s)
+
+          # Only commit if the last heartbeat is older than 14 days, so the repo
+          # does not collect a commit every 3 days for no reason.
+          if [ -f "$file" ]; then
+            last=$(head -n 1 "$file")
+            case "$last" in
+              ''|*[!0-9]*) last=0 ;;   # unreadable/corrupt -> treat as due
+            esac
+            age=$(( now - last ))
+            if [ "$age" -lt $(( 14 * 24 * 3600 )) ]; then
+              echo "Last heartbeat was $(( age / 86400 ))d ago; next is due at 14d. Skipping."
+              exit 0
+            fi
+          fi
+
+          printf '%s\n%s\n' "$now" "$(date -u -d "@$now" +'%Y-%m-%dT%H:%M:%SZ')" > "$file"
+
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$file"
+          git commit -m 'chore: keepalive heartbeat [skip ci]'
+
+          # The schedule may have queued this run against a stale ref.
+          git pull --rebase --autostash
+          git push

@@ -162,3 +162,45 @@ src/
   navigation/
     AppNavigator.js             Auth-aware navigator, bottom tabs
 ```
+
+---
+
+## 10. Keeping the Project Alive
+
+Two independent timers would otherwise take this app offline while it sits
+untouched. [`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml)
+handles both.
+
+| Timer | Limit | How the workflow handles it |
+|---|---|---|
+| Supabase pauses a free project after inactivity | 7 days | Reads one row over the REST API every 3 days |
+| GitHub disables a scheduled workflow after repo inactivity | 60 days | Commits `.github/keepalive-heartbeat.txt` every 14 days |
+
+The ping uses the **anon** key, not the service role key. A plain read needs no
+elevated rights, so the powerful key never has to be stored in GitHub.
+
+### Required repository secrets
+
+Add both under **Settings → Secrets and variables → Actions → _Secrets_ tab →
+New repository secret**. They must be **Secrets**, not **Variables** —
+Variables are readable by anyone who can view the repo and are printed in plain
+text in workflow logs.
+
+| Name | Value |
+|---|---|
+| `SUPABASE_URL` | Same as `SUPABASE_URL` in your local `.env` (e.g. `https://<project-id>.supabase.co`) |
+| `SUPABASE_ANON_KEY` | Same as `SUPABASE_ANON_KEY` in your local `.env` (the `sb_publishable_…` / anon key) |
+
+### Behaviour
+
+- **Missing secrets fail immediately** with an explicit message, so a
+  configuration mistake is never mistaken for a database fault.
+- **Any non-2xx response fails the run**, so GitHub emails you if the project
+  paused anyway.
+- Run it by hand any time from **Actions → Keepalive → Run workflow**
+  (`workflow_dispatch`).
+
+A `200` with an empty array `[]` is the expected healthy result. Every `SELECT`
+policy in `supabase-setup.sql` is granted `TO authenticated`, so an anon read
+returns no rows — but the query still executes against the database, which is
+what Supabase counts as activity.
